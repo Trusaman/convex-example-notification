@@ -64,7 +64,7 @@ export function CustomerRequests({ user }: CustomerManagementProps) {
                 requestId: selectedRequest._id,
                 reason: rejectionReason.trim(),
             });
-            toast.success("Yêu cầu đã được từ chối!");
+            toast.error("Yêu cầu đã bị từ chối!");
             setShowRejectModal(false);
             setSelectedRequest(null);
             setRejectionReason("");
@@ -290,7 +290,7 @@ export function CustomerRequests({ user }: CustomerManagementProps) {
                                 Hủy
                             </button>
                             <button
-                                onClick={void handleReject}
+                                onClick={() => void handleReject()}
                                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                             >
                                 Từ chối yêu cầu
