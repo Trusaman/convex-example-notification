@@ -61,14 +61,10 @@ export function CustomerManagement({ user }: CustomerManagementProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const canManageCustomers =
-        user.role === "admin" ||
-        user.role === "accountant" ||
-        user.role === "sales";
+        user.role === "admin" || user.role === "accountant";
 
-    const canRequestCustomers =
-        user.role === "sales" ||
-        user.role === "admin" ||
-        user.role === "accountant";
+    // Sales can submit customer creation requests; admins/accountants manage directly
+    const canRequestCustomers = user.role === "sales";
 
     const handleCreateCustomer = async (data: any) => {
         setIsSubmitting(true);
@@ -78,9 +74,12 @@ export function CustomerManagement({ user }: CustomerManagementProps) {
                 toast.success("Khách hàng đã được tạo thành công!");
                 setActiveTab("list");
             } else if (canRequestCustomers) {
-                await requestCustomerCreation(data);
+                // if canRequestCustomers then data skip status
+                const { status, ...requestData } = data;
+
+                await requestCustomerCreation(requestData);
                 toast.success("Yêu cầu tạo khách hàng đã được gửi!");
-                setActiveTab("requests");
+                setActiveTab("list");
             }
         } catch (error: any) {
             toast.error(error.message || "Có lỗi xảy ra");
@@ -187,7 +186,11 @@ export function CustomerManagement({ user }: CustomerManagementProps) {
                             >
                                 Lịch sử thay đổi
                             </button>
+                        </>
+                    )}
 
+                    {(canManageCustomers || canRequestCustomers) && (
+                        <>
                             <button
                                 onClick={() => setActiveTab("requests")}
                                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -361,9 +364,10 @@ export function CustomerManagement({ user }: CustomerManagementProps) {
                     <CustomerHistory selectedCustomerId={selectedCustomerId} />
                 )}
 
-                {activeTab === "requests" && canManageCustomers && (
-                    <CustomerRequests />
-                )}
+                {activeTab === "requests" &&
+                    (canManageCustomers || canRequestCustomers) && (
+                        <CustomerRequests user={user} />
+                    )}
             </div>
         </div>
     );

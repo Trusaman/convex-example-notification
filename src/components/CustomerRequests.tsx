@@ -20,7 +20,16 @@ interface CustomerRequest {
     _creationTime: number;
 }
 
-export function CustomerRequests() {
+interface User {
+    _id: Id<"profiles">;
+    role: string;
+}
+
+interface CustomerManagementProps {
+    user: User;
+}
+
+export function CustomerRequests({ user }: CustomerManagementProps) {
     const [selectedRequest, setSelectedRequest] =
         useState<CustomerRequest | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
@@ -29,6 +38,11 @@ export function CustomerRequests() {
     const customerRequests = useQuery(api.customers.getCustomerRequests);
     const approveRequest = useMutation(api.customers.approveCustomerRequest);
     const rejectRequest = useMutation(api.customers.rejectCustomerRequest);
+
+    // Sales can only see their own requests; managers see all
+    const visibleRequests = (customerRequests || []).filter((r) =>
+        user.role === "sales" ? r.requestedBy === user._id : true
+    );
 
     const handleApprove = async (request: CustomerRequest) => {
         try {
@@ -83,13 +97,13 @@ export function CustomerRequests() {
         <div className="p-6">
             <h3 className="text-lg font-medium mb-6">Yêu cầu tạo khách hàng</h3>
 
-            {!customerRequests || customerRequests.length === 0 ? (
+            {!visibleRequests || visibleRequests.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                     Chưa có yêu cầu nào
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {customerRequests.map((request) => (
+                    {visibleRequests.map((request) => (
                         <div
                             key={request._id}
                             className="bg-gray-50 p-6 rounded-lg border"
@@ -128,27 +142,28 @@ export function CustomerRequests() {
                                     </div>
                                 </div>
 
-                                {request.status === "pending" && (
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() =>
-                                                void handleApprove(request)
-                                            }
-                                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                                        >
-                                            Phê duyệt
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedRequest(request);
-                                                setShowRejectModal(true);
-                                            }}
-                                            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                                        >
-                                            Từ chối
-                                        </button>
-                                    </div>
-                                )}
+                                {request.status === "pending" &&
+                                    user.role !== "sales" && (
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() =>
+                                                    void handleApprove(request)
+                                                }
+                                                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                                            >
+                                                Phê duyệt
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedRequest(request);
+                                                    setShowRejectModal(true);
+                                                }}
+                                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                                            >
+                                                Từ chối
+                                            </button>
+                                        </div>
+                                    )}
                             </div>
 
                             <div className="bg-white p-4 rounded border">
@@ -278,7 +293,7 @@ export function CustomerRequests() {
                                 onClick={void handleReject}
                                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                             >
-                                Từ chối
+                                Từ chối yêu cầu
                             </button>
                         </div>
                     </div>

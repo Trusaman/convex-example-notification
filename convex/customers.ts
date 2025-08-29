@@ -297,6 +297,8 @@ export const requestCustomerCreation = mutation({
             );
         }
 
+        console.log("Requesting customer creation");
+
         const requestId = await ctx.db.insert("customer_requests", {
             requestType: "create",
             requestedBy: user._id,
