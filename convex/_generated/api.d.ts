@@ -18,7 +18,10 @@ import type * as customers from "../customers.js";
 import type * as http from "../http.js";
 import type * as notifications from "../notifications.js";
 import type * as orders from "../orders.js";
+import type * as products from "../products.js";
+import type * as purchaseOrders from "../purchaseOrders.js";
 import type * as router from "../router.js";
+import type * as suppliers from "../suppliers.js";
 import type * as users from "../users.js";
 
 /**
@@ -35,7 +38,10 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   notifications: typeof notifications;
   orders: typeof orders;
+  products: typeof products;
+  purchaseOrders: typeof purchaseOrders;
   router: typeof router;
+  suppliers: typeof suppliers;
   users: typeof users;
 }>;
 export declare const api: FilterApi<
