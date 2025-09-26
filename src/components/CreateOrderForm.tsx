@@ -204,24 +204,18 @@ export function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
                                                 : null
                                         }
                                         onChange={(v) => {
-                                            updateItem(
-                                                index,
-                                                "productId",
-                                                v?.productId ?? ""
-                                            );
-                                            updateItem(
-                                                index,
-                                                "productName",
-                                                v?.productName ?? ""
-                                            );
-                                            if (
-                                                typeof v?.unitPrice === "number"
-                                            )
-                                                updateItem(
-                                                    index,
-                                                    "unitPrice",
-                                                    v.unitPrice
-                                                );
+                                            const newItems = [...items];
+                                            newItems[index] = {
+                                                ...newItems[index],
+                                                productId: v?.productId ?? "",
+                                                productName:
+                                                    v?.productName ?? "",
+                                                unitPrice: v?.unitPrice ?? 0,
+                                                totalPrice:
+                                                    (v?.unitPrice ?? 0) *
+                                                    newItems[index].quantity,
+                                            };
+                                            setItems(newItems);
                                         }}
                                     />
                                 </div>
