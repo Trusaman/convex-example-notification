@@ -38,6 +38,10 @@ export function UserManagement() {
     // Cast to any to accommodate codegen delay for new action
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adminCreateUser = useAction((api as any).users.adminCreateUser);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adminUpdateUserEmail = useAction(
+        (api as any).users.adminUpdateUserEmail
+    );
     const deleteUser = useMutation(api.users.deleteUser);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +62,20 @@ export function UserManagement() {
 
         try {
             if (editingUser) {
+                const emailChanged =
+                    formData.email.trim().toLowerCase() !==
+                    editingUser.email.trim().toLowerCase();
+
+                // If email changed, use the admin action to update auth account
+                if (emailChanged) {
+                    await adminUpdateUserEmail({
+                        userId: editingUser.userId,
+                        oldEmail: editingUser.email,
+                        newEmail: formData.email.trim(),
+                    });
+                }
+
+                // Update the profile (name and role)
                 await createOrUpdateUser({
                     email: formData.email.trim(),
                     name: formData.name.trim(),
@@ -177,7 +195,6 @@ export function UserManagement() {
                                     }
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     required
-                                    disabled={!!editingUser} // Can't change email for existing users
                                 />
                             </div>
                             <div>

@@ -152,6 +152,146 @@ export const _upsertProfile = internalMutation({
     },
 });
 
+export const _updateProfileEmail = internalMutation({
+    args: {
+        userId: v.id("users"),
+        email: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q: any) => q.eq("userId", args.userId))
+            .first();
+
+        if (profile) {
+            await ctx.db.patch(profile._id, {
+                email: args.email,
+            });
+        }
+
+        // Also update the user document email
+        await ctx.db.patch(args.userId, {
+            email: args.email,
+        });
+    },
+});
+
+export const _deleteAuthAccount = internalMutation({
+    args: {
+        accountId: v.id("authAccounts"),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.accountId);
+    },
+});
+
+export const _createAuthAccount = internalMutation({
+    args: {
+        userId: v.id("users"),
+        provider: v.string(),
+        providerAccountId: v.string(),
+        secret: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("authAccounts", {
+            userId: args.userId,
+            provider: args.provider,
+            providerAccountId: args.providerAccountId,
+            secret: args.secret,
+        });
+    },
+});
+
+// Admin: Update user email (updates both auth account and profile)
+export const adminUpdateUserEmail = action({
+    args: {
+        userId: v.id("users"),
+        oldEmail: v.string(),
+        newEmail: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const currentProfile = await ctx.runQuery(
+            internal.users._getCurrentProfile,
+            {}
+        );
+        if (!currentProfile || currentProfile.role !== "admin") {
+            throw new Error("Only admins can update user emails");
+        }
+
+        const oldEmail = args.oldEmail.trim().toLowerCase();
+        const newEmail = args.newEmail.trim().toLowerCase();
+
+        if (oldEmail === newEmail) {
+            // No change needed
+            return { success: true };
+        }
+
+        // Check if new email is already in use
+        try {
+            const existingAccount = await retrieveAccount(ctx, {
+                provider: "password",
+                account: { id: newEmail },
+            });
+            if (existingAccount) {
+                throw new Error("Email is already in use by another account");
+            }
+        } catch {
+            // Email not in use, which is what we want
+        }
+
+        // Get the old account
+        const oldAccount = await retrieveAccount(ctx, {
+            provider: "password",
+            account: { id: oldEmail },
+        });
+
+        if (!oldAccount) {
+            throw new Error("User account not found");
+        }
+
+        // Delete old account and create new one with same password hash
+        const accountDoc = oldAccount.account as any;
+
+        // Log for debugging
+        console.log("Old account structure:", {
+            hasSecret: !!accountDoc.secret,
+            accountId: accountDoc._id,
+            provider: accountDoc.provider,
+            providerAccountId: accountDoc.providerAccountId,
+        });
+
+        const secret = accountDoc.secret; // This is the hashed password
+
+        if (!secret) {
+            throw new Error(
+                "Could not retrieve password hash from old account"
+            );
+        }
+
+        // Delete the old account first
+        await ctx.runMutation(internal.users._deleteAuthAccount, {
+            accountId: accountDoc._id,
+        });
+
+        // Create new account with the same password hash and link to existing user
+        await ctx.runMutation(internal.users._createAuthAccount, {
+            userId: args.userId,
+            provider: "password",
+            providerAccountId: newEmail,
+            secret,
+        });
+
+        // Update the profile and user document
+        await ctx.runMutation(internal.users._updateProfileEmail, {
+            userId: args.userId,
+            email: newEmail,
+        });
+
+        console.log("Email update completed successfully");
+        return { success: true };
+    },
+});
+
 // Admin: Create a brand new auth user and corresponding profile
 export const adminCreateUser = action({
     args: {
