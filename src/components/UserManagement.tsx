@@ -19,6 +19,7 @@ export function UserManagement() {
     const [formData, setFormData] = useState<{
         email: string;
         name: string;
+        password: string;
         role:
             | "sales"
             | "accountant"
@@ -28,6 +29,7 @@ export function UserManagement() {
     }>({
         email: "",
         name: "",
+        password: "",
         role: "sales",
     });
 
@@ -49,6 +51,11 @@ export function UserManagement() {
             return;
         }
 
+        if (!editingUser && !formData.password.trim()) {
+            toast.error("Password is required for new users");
+            return;
+        }
+
         try {
             if (editingUser) {
                 await createOrUpdateUser({
@@ -62,6 +69,7 @@ export function UserManagement() {
                 const result = await adminCreateUser({
                     email: formData.email.trim(),
                     name: formData.name.trim(),
+                    password: formData.password.trim(),
                     role: formData.role,
                 });
                 if (result?.temporaryPassword) {
@@ -84,6 +92,7 @@ export function UserManagement() {
         setFormData({
             email: user.email,
             name: user.name,
+            password: "", // Password not needed for editing
             role: user.role,
         });
         setIsCreating(true);
@@ -109,6 +118,7 @@ export function UserManagement() {
         setFormData({
             email: "",
             name: "",
+            password: "",
             role: "sales",
         });
     };
@@ -189,6 +199,27 @@ export function UserManagement() {
                                 />
                             </div>
                         </div>
+
+                        {!editingUser && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Password
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={formData.password}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            password: e.target.value,
+                                        })
+                                    }
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">

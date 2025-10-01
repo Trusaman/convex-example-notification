@@ -157,6 +157,7 @@ export const adminCreateUser = action({
     args: {
         email: v.string(),
         name: v.string(),
+        password: v.string(),
         role: v.union(
             v.literal("sales"),
             v.literal("accountant"),
@@ -181,28 +182,47 @@ export const adminCreateUser = action({
         let temporaryPassword: string | undefined;
 
         const email = args.email.trim().toLowerCase();
+        const password = args.password.trim();
 
-        const existing = await retrieveAccount(ctx, {
-            provider: "password",
-            account: { id: email },
-        });
+        if (!password) {
+            throw new Error("Password is required");
+        }
 
-        if (existing && (existing as any).userId) {
-            userId = (existing as any).userId as Id<"users">;
+        // Try to retrieve existing account first
+        let existing: any = null;
+        try {
+            existing = await retrieveAccount(ctx, {
+                provider: "password",
+                account: { id: email },
+            });
+        } catch {
+            // Account doesn't exist yet, which is fine for new user creation
+            console.log("No existing account found, will create new one");
+        }
+
+        if (existing && existing.userId) {
+            // User already exists, just link the profile
+            userId = existing.userId as Id<"users">;
         } else {
+            // Create new account with provided password
             const { createAccount } = await import("@convex-dev/auth/server");
-            const tempPassword = Math.random().toString(36).slice(-10) + "!A1";
             const created = await createAccount(ctx, {
                 provider: "password",
-                account: { id: email, secret: tempPassword },
+                account: { id: email, secret: password },
                 profile: { email, name: args.name },
             });
-            userId = (created as any).userId as Id<"users">;
-            temporaryPassword = tempPassword;
+            console.log("Created account:", created);
+            // The createAccount function returns an object with user property
+            userId = created.user._id;
+            temporaryPassword = password; // Return the password so admin can share it
+        }
+
+        if (!userId) {
+            throw new Error("Failed to create or retrieve user ID");
         }
 
         const profileId = await ctx.runMutation(internal.users._upsertProfile, {
-            userId: userId as Id<"users">,
+            userId,
             email,
             name: args.name,
             role: args.role,

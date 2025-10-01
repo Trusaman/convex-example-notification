@@ -80,6 +80,7 @@ test.describe("User Management", () => {
         const uniqueEmail = `e2e-${Date.now()}@example.com`;
         await page.getByPlaceholder("Email").fill(uniqueEmail);
         await page.getByPlaceholder("Full Name").fill("E2E Temp User");
+        await page.getByPlaceholder("Password").fill("TestPassword123!");
         await page.getByLabel("Role").selectOption("sales");
 
         await page.getByRole("button", { name: "Create User" }).click();
