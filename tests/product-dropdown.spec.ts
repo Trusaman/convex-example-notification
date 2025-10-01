@@ -31,22 +31,19 @@ test.describe("ProductDropdown Component", () => {
             );
         }
 
-        // Check for different authentication states
-        const signInAnonymouslyButton = page.locator(
-            'button:has-text("Sign in anonymously")'
-        );
+        // Sign in using admin credentials
+        const emailInput = page.locator('input[name="email"]');
+        const passwordInput = page.locator('input[name="password"]');
         const signInButton = page.locator('button:has-text("Sign in")');
 
-        if (await signInAnonymouslyButton.isVisible()) {
-            console.log("Found 'Sign in anonymously' button, clicking...");
-            await signInAnonymouslyButton.click();
-            await page.waitForLoadState("networkidle");
-        } else if (await signInButton.isVisible()) {
-            console.log("Found 'Sign in' button, clicking...");
+        if (await emailInput.isVisible()) {
+            console.log("Signing in with provided credentials...");
+            await emailInput.fill("ngocanhnguyen.tayduong@gmail.com");
+            await passwordInput.fill("12345678");
             await signInButton.click();
             await page.waitForLoadState("networkidle");
         } else {
-            console.log("No sign in button found, might already be signed in");
+            console.log("Email input not visible; assuming already signed in");
         }
 
         // Complete profile setup if needed

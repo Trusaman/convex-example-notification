@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -33,10 +33,16 @@ export function UserManagement() {
 
     const users = useQuery(api.users.getAllUsers);
     const createOrUpdateUser = useMutation(api.users.createOrUpdateUser);
+    // Cast to any to accommodate codegen delay for new action
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adminCreateUser = useAction((api as any).users.adminCreateUser);
     const deleteUser = useMutation(api.users.deleteUser);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        console.log("Run handleSubmit");
+        console.log("formData", formData);
 
         if (!formData.email.trim() || !formData.name.trim()) {
             toast.error("Please fill in all fields");
@@ -44,21 +50,31 @@ export function UserManagement() {
         }
 
         try {
-            await createOrUpdateUser({
-                email: formData.email.trim(),
-                name: formData.name.trim(),
-                role: formData.role,
-                targetUserId: editingUser?.userId,
-            });
-
-            toast.success(
-                editingUser
-                    ? "User updated successfully!"
-                    : "User created successfully!"
-            );
+            if (editingUser) {
+                await createOrUpdateUser({
+                    email: formData.email.trim(),
+                    name: formData.name.trim(),
+                    role: formData.role,
+                    targetUserId: editingUser.userId,
+                });
+                toast.success("User updated successfully!");
+            } else {
+                const result = await adminCreateUser({
+                    email: formData.email.trim(),
+                    name: formData.name.trim(),
+                    role: formData.role,
+                });
+                if (result?.temporaryPassword) {
+                    toast.success(
+                        `User created! Temporary password: ${result.temporaryPassword}`
+                    );
+                } else {
+                    toast.success("User created successfully!");
+                }
+            }
             resetForm();
         } catch (error) {
-            toast.error("Failed to save user");
+            toast.error((error as Error)?.message ?? "Failed to save user");
             console.error(error);
         }
     };
@@ -115,6 +131,7 @@ export function UserManagement() {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold">User Management</h2>
                 <button
+                    type="button"
                     onClick={() => setIsCreating(true)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
                 >
@@ -140,6 +157,7 @@ export function UserManagement() {
                                 </label>
                                 <input
                                     type="email"
+                                    placeholder="Email"
                                     value={formData.email}
                                     onChange={(e) =>
                                         setFormData({
@@ -158,6 +176,7 @@ export function UserManagement() {
                                 </label>
                                 <input
                                     type="text"
+                                    placeholder="Full Name"
                                     value={formData.name}
                                     onChange={(e) =>
                                         setFormData({
@@ -176,6 +195,7 @@ export function UserManagement() {
                                 Role
                             </label>
                             <select
+                                aria-label="Role"
                                 value={formData.role}
                                 onChange={(e) =>
                                     setFormData({
@@ -261,12 +281,14 @@ export function UserManagement() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                         <button
+                                            type="button"
                                             onClick={() => handleEdit(user)}
                                             className="text-blue-600 hover:text-blue-900"
                                         >
                                             Edit
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() =>
                                                 void handleDelete(user)
                                             }
