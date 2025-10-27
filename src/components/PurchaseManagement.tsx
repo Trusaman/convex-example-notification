@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ProductDropdown } from "./ProductDropdown";
 import { SupplierDropdown } from "./SupplierDropdown";
+import { PODetail } from "./PODetail";
 
 interface User {
     _id: Id<"profiles">;
@@ -50,6 +51,8 @@ export function PurchaseManagement({ user }: { user: User }) {
         useState<Id<"purchase_orders"> | null>(null);
     const [rejectReason, setRejectReason] = useState("");
     const [rejectError, setRejectError] = useState<string | null>(null);
+    const [viewingPoId, setViewingPoId] =
+        useState<Id<"purchase_orders"> | null>(null);
 
     const handleStatusChange = async (
         poId: Id<"purchase_orders">,
@@ -137,6 +140,15 @@ export function PurchaseManagement({ user }: { user: User }) {
             setIsSubmitting(false);
         }
     };
+
+    if (viewingPoId) {
+        return (
+            <PODetail
+                poId={viewingPoId}
+                onBack={() => setViewingPoId(null)}
+            />
+        );
+    }
 
     return (
         <div className="p-6">
@@ -330,7 +342,12 @@ export function PurchaseManagement({ user }: { user: User }) {
                             {(pos || []).map((po: any) => (
                                 <tr key={po._id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {po.poNumber}
+                                        <button
+                                            onClick={() => setViewingPoId(po._id)}
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            {po.poNumber}
+                                        </button>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         {po.supplierName}
