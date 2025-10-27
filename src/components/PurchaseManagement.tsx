@@ -43,6 +43,39 @@ export function PurchaseManagement({ user }: { user: User }) {
         },
     ]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [statusUpdatingId, setStatusUpdatingId] =
+        useState<Id<"purchase_orders"> | null>(null);
+
+    const [rejectingPoId, setRejectingPoId] =
+        useState<Id<"purchase_orders"> | null>(null);
+    const [rejectReason, setRejectReason] = useState("");
+    const [rejectError, setRejectError] = useState<string | null>(null);
+
+    const handleStatusChange = async (
+        poId: Id<"purchase_orders">,
+        status: "draft" | "pending_approval" | "approved",
+        reason?: string
+    ) => {
+        setStatusUpdatingId(poId);
+        try {
+            const payload: any = { poId, status };
+            if (status === "draft" && reason) payload.rejectionReason = reason;
+            await updatePO(payload);
+            toast.success(
+                status === "approved"
+                    ? "Purchase order approved"
+                    : status === "pending_approval"
+                      ? "Purchase order submitted for approval"
+                      : reason
+                        ? "Purchase order rejected. Reason recorded."
+                        : "Purchase order moved back to draft"
+            );
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update status");
+        } finally {
+            setStatusUpdatingId(null);
+        }
+    };
 
     const addItem = () =>
         setItems([
@@ -304,6 +337,11 @@ export function PurchaseManagement({ user }: { user: User }) {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm capitalize">
                                         {po.status.replace("_", " ")}
+                                        {po.rejectionReason && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Reason: {po.rejectionReason}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         ${po.totalAmount.toFixed(2)}
@@ -316,22 +354,75 @@ export function PurchaseManagement({ user }: { user: User }) {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                                         {canManage && (
                                             <>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        void updatePO({
-                                                            poId: po._id,
-                                                            status:
-                                                                po.status ===
-                                                                "draft"
-                                                                    ? "pending_approval"
-                                                                    : "draft",
-                                                        })
-                                                    }
-                                                    className="text-blue-600"
-                                                >
-                                                    Toggle Submit
-                                                </button>
+                                                {po.status === "draft" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            void handleStatusChange(
+                                                                po._id,
+                                                                "pending_approval"
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            statusUpdatingId ===
+                                                            po._id
+                                                        }
+                                                        className="text-blue-600 disabled:opacity-50"
+                                                    >
+                                                        {statusUpdatingId ===
+                                                        po._id
+                                                            ? "Submitting..."
+                                                            : "Submit"}
+                                                    </button>
+                                                )}
+                                                {po.status ===
+                                                    "pending_approval" && (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                void handleStatusChange(
+                                                                    po._id,
+                                                                    "approved"
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                statusUpdatingId ===
+                                                                po._id
+                                                            }
+                                                            className="text-green-600 disabled:opacity-50"
+                                                        >
+                                                            {statusUpdatingId ===
+                                                            po._id
+                                                                ? "Approving..."
+                                                                : "Approve"}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setRejectingPoId(
+                                                                    po._id
+                                                                );
+                                                                setRejectReason(
+                                                                    ""
+                                                                );
+                                                                setRejectError(
+                                                                    null
+                                                                );
+                                                            }}
+                                                            disabled={
+                                                                statusUpdatingId ===
+                                                                po._id
+                                                            }
+                                                            className="text-yellow-600 disabled:opacity-50"
+                                                        >
+                                                            {statusUpdatingId ===
+                                                            po._id
+                                                                ? "Rejecting..."
+                                                                : "Reject"}
+                                                        </button>
+                                                    </>
+                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={() =>
@@ -358,6 +449,85 @@ export function PurchaseManagement({ user }: { user: User }) {
                         </div>
                     ))}
             </div>
+            {rejectingPoId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => {
+                            if (statusUpdatingId !== rejectingPoId) {
+                                setRejectingPoId(null);
+                                setRejectReason("");
+                                setRejectError(null);
+                            }
+                        }}
+                    />
+                    <div className="relative bg-white rounded-md shadow-lg w-full max-w-md p-6">
+                        <h3 className="text-lg font-semibold mb-2">
+                            Reject Purchase Order
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Please provide a reason for rejection.
+                        </p>
+                        <textarea
+                            className="w-full border border-gray-300 rounded-md p-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            rows={4}
+                            value={rejectReason}
+                            onChange={(e) => {
+                                setRejectReason(e.target.value);
+                                setRejectError(null);
+                            }}
+                            placeholder="Enter rejection reason..."
+                        />
+                        {rejectError && (
+                            <div className="text-sm text-red-600 mb-2">
+                                {rejectError}
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRejectingPoId(null);
+                                    setRejectReason("");
+                                    setRejectError(null);
+                                }}
+                                disabled={statusUpdatingId === rejectingPoId}
+                                className="px-4 py-2 border border-gray-300 rounded-md"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    const reason = rejectReason.trim();
+                                    if (!reason) {
+                                        setRejectError(
+                                            "Rejection reason is required"
+                                        );
+                                        toast.error(
+                                            "Rejection reason is required"
+                                        );
+                                        return;
+                                    }
+                                    const id = rejectingPoId!;
+                                    await handleStatusChange(
+                                        id,
+                                        "draft",
+                                        reason
+                                    );
+                                    setRejectingPoId(null);
+                                    setRejectReason("");
+                                    setRejectError(null);
+                                }}
+                                disabled={statusUpdatingId === rejectingPoId}
+                                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50"
+                            >
+                                Confirm Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

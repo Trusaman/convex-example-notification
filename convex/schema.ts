@@ -204,6 +204,7 @@ const applicationTables = {
                 timestamp: v.number(),
             })
         ),
+        rejectionReason: v.optional(v.string()),
     })
         .index("by_status", ["status"])
         .index("by_po_number", ["poNumber"]),
