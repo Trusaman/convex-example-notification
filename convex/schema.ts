@@ -294,6 +294,58 @@ const applicationTables = {
     })
         .index("by_user", ["userId"])
         .index("by_user_unread", ["userId", "isRead"]),
+
+    inventory_batches: defineTable({
+        productId: v.id("products"),
+        productCode: v.string(),
+        productName: v.string(),
+        batchNumber: v.string(),
+        quantity: v.number(),
+        receivedDate: v.number(),
+        expiryDate: v.optional(v.number()),
+        manufactureDate: v.optional(v.number()),
+        supplierName: v.optional(v.string()),
+        purchaseOrderId: v.optional(v.id("purchase_orders")),
+        location: v.optional(v.string()),
+        notes: v.optional(v.string()),
+        status: v.union(
+            v.literal("available"),
+            v.literal("reserved"),
+            v.literal("expired"),
+            v.literal("damaged")
+        ),
+        createdBy: v.id("profiles"),
+        updatedBy: v.id("profiles"),
+    })
+        .index("by_product_id", ["productId"])
+        .index("by_batch_number", ["batchNumber"])
+        .index("by_status", ["status"])
+        .index("by_product_id_and_status", ["productId", "status"])
+        .index("by_received_date", ["receivedDate"]),
+
+    inventory_transactions: defineTable({
+        batchId: v.id("inventory_batches"),
+        productId: v.id("products"),
+        transactionType: v.union(
+            v.literal("receive"),
+            v.literal("ship"),
+            v.literal("adjust"),
+            v.literal("return"),
+            v.literal("damage"),
+            v.literal("expire")
+        ),
+        quantity: v.number(),
+        orderId: v.optional(v.id("orders")),
+        purchaseOrderId: v.optional(v.id("purchase_orders")),
+        notes: v.optional(v.string()),
+        performedBy: v.id("profiles"),
+        performedByName: v.string(),
+        timestamp: v.number(),
+    })
+        .index("by_batch_id", ["batchId"])
+        .index("by_product_id", ["productId"])
+        .index("by_transaction_type", ["transactionType"])
+        .index("by_timestamp", ["timestamp"]),
 };
 
 export default defineSchema({

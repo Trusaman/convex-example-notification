@@ -4,21 +4,26 @@ import { api } from "../../convex/_generated/api";
 
 interface ProductDropdownProps {
     value?: {
-        productId: string;
+        productId: string; // stores Convex Id<"products"> as string
         productName: string;
         unitPrice: number;
     } | null;
     onChange: (
         v: { productId: string; productName: string; unitPrice: number } | null
     ) => void;
+    disabled?: boolean;
 }
 
-export function ProductDropdown({ value, onChange }: ProductDropdownProps) {
+export function ProductDropdown({
+    value,
+    onChange,
+    disabled,
+}: ProductDropdownProps) {
     const products = useQuery(api.products.getActiveProducts);
 
     const options = useMemo(() => {
-        return (products || []).map((p) => ({
-            id: p.productCode, // use productCode as productId for now
+        return (products || []).map((p: any) => ({
+            id: String(p._id), // use Convex product _id
             label: `${p.productCode} — ${p.productName}`,
             unitPrice: p.unitPrice,
         }));
@@ -38,6 +43,7 @@ export function ProductDropdown({ value, onChange }: ProductDropdownProps) {
                     unitPrice: selected.unitPrice,
                 });
             }}
+            disabled={disabled}
         >
             <option value="">Select a product...</option>
             {options.map((o) => (
