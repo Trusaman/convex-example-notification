@@ -30,6 +30,16 @@ export const getActiveProducts = query({
     },
 });
 
+export const getProduct = query({
+    args: { productId: v.id("products") },
+    handler: async (ctx, { productId }) => {
+        await getCurrentUser(ctx);
+        const product = await ctx.db.get(productId);
+        if (!product) throw new Error("Product not found");
+        return product;
+    },
+});
+
 export const getProducts = query({
     args: {},
     handler: async (ctx) => {

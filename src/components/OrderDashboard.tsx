@@ -11,6 +11,7 @@ import { ProductManagement } from "./ProductManagement";
 import { PurchaseManagement } from "./PurchaseManagement";
 import { SupplierManagement } from "./SupplierManagement";
 import { InventoryManagement } from "./InventoryManagement";
+import { InventoryDashboard } from "./InventoryDashboard";
 
 interface User {
     _id: Id<"profiles">;
@@ -233,7 +234,7 @@ export function OrderDashboard({ user }: OrderDashboardProps) {
                 {activeTab === "inventory" &&
                     (user.role === "admin" ||
                         user.role === "warehouse_manager") && (
-                        <InventoryManagement user={user} />
+                        <InventoryDashboard user={user} />
                     )}
             </div>
         </div>

@@ -17,6 +17,147 @@ function canManageInventory(role: string) {
     return role === "admin" || role === "warehouse_manager";
 }
 
+// Get active products with computed available stock
+export const getActiveProductsWithStock = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getCurrentUser(ctx);
+        if (!canManageInventory(user.role)) {
+            throw new Error(
+                "Only admin or warehouse manager can view inventory"
+            );
+        }
+
+        const products = await ctx.db
+            .query("products")
+            .withIndex("by_status", (q) => q.eq("status", "active"))
+            .collect();
+
+        // Sum shipped quantities from orders.shippingQuantities (uses productCode)
+        const orders = await ctx.db.query("orders").collect();
+        const shippedByCode: Record<string, number> = {};
+        for (const order of orders as any[]) {
+            const sq = (order as any).shippingQuantities || [];
+            for (const s of sq) {
+                const code = s.productId; // this stores productCode in current schema
+                if (typeof code === "string") {
+                    shippedByCode[code] =
+                        (shippedByCode[code] || 0) + (s.shippedQuantity || 0);
+                }
+            }
+        }
+
+        return products.map((p: any) => {
+            const shipped = shippedByCode[p.productCode] || 0;
+            const availableQuantity = Math.max(
+                0,
+                (p.stockQuantity || 0) - shipped
+            );
+            return {
+                _id: p._id,
+                productId: p._id,
+                productCode: p.productCode,
+                productName: p.productName,
+                unitPrice: p.unitPrice,
+                stockQuantity: p.stockQuantity,
+                shippedQuantity: shipped,
+                availableQuantity,
+            };
+        });
+    },
+});
+
+// Get detailed stock movements for a product (transactions + shipped from orders)
+export const getProductStockMovements = query({
+    args: { productId: v.id("products") },
+    handler: async (ctx, { productId }) => {
+        const user = await getCurrentUser(ctx);
+        if (!canManageInventory(user.role)) {
+            throw new Error(
+                "Only admin or warehouse manager can view product inventory"
+            );
+        }
+
+        const product = await ctx.db.get(productId);
+        if (!product) throw new Error("Product not found");
+
+        const [transactions, orders] = await Promise.all([
+            ctx.db
+                .query("inventory_transactions")
+                .withIndex("by_product_id", (q) => q.eq("productId", productId))
+                .collect(),
+            ctx.db.query("orders").collect(),
+        ]);
+
+        const invEvents = (transactions as any[]).map((t: any) => ({
+            kind: t.transactionType,
+            quantity:
+                t.transactionType === "ship"
+                    ? -Math.abs(t.quantity)
+                    : t.quantity,
+            timestamp: t.timestamp,
+            source: t.purchaseOrderId
+                ? "purchase"
+                : t.orderId
+                  ? "order"
+                  : "manual",
+            batchId: t.batchId,
+            orderId: t.orderId,
+            purchaseOrderId: t.purchaseOrderId,
+            notes: t.notes,
+            performedByName: t.performedByName,
+        }));
+
+        const shipEventsFromOrders: any[] = [];
+        for (const order of orders as any[]) {
+            const sq = (order as any).shippingQuantities || [];
+            let qtyForThisProduct = 0;
+            for (const s of sq) {
+                if (s.productId === (product as any).productCode) {
+                    qtyForThisProduct += s.shippedQuantity || 0;
+                }
+            }
+            if (qtyForThisProduct > 0) {
+                shipEventsFromOrders.push({
+                    kind: "ship",
+                    quantity: -Math.abs(qtyForThisProduct),
+                    timestamp: (order as any)._creationTime || Date.now(),
+                    orderId: (order as any)._id,
+                    orderNumber: (order as any).orderNumber,
+                    source: "order",
+                });
+            }
+        }
+
+        const allEvents = [...invEvents, ...shipEventsFromOrders].sort(
+            (a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0)
+        );
+
+        let running = 0;
+        const movements = allEvents.map((e: any) => {
+            running += e.quantity;
+            return { ...e, balance: running };
+        });
+
+        const computedAvailable = movements.reduce(
+            (acc: number, e: any) => acc + e.quantity,
+            0
+        );
+
+        return {
+            product: {
+                _id: (product as any)._id,
+                productCode: (product as any).productCode,
+                productName: (product as any).productName,
+                unitPrice: (product as any).unitPrice,
+                stockQuantity: (product as any).stockQuantity,
+                status: (product as any).status,
+            },
+            computedAvailable,
+            movements,
+        };
+    },
+});
 // Get all inventory batches
 export const getInventoryBatches = query({
     args: {},
