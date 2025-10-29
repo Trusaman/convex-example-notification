@@ -346,6 +346,23 @@ const applicationTables = {
         .index("by_product_id", ["productId"])
         .index("by_transaction_type", ["transactionType"])
         .index("by_timestamp", ["timestamp"]),
+
+    // Goods delivery vouchers linked to approved orders
+    delivery_vouchers: defineTable({
+        voucherNumber: v.string(),
+        orderId: v.id("orders"),
+        items: v.array(
+            v.object({
+                productId: v.string(), // follows orders.items.productId
+                productName: v.string(),
+                quantity: v.number(),
+            })
+        ),
+        createdBy: v.id("profiles"),
+        createdAt: v.number(),
+    })
+        .index("by_order", ["orderId"])
+        .index("by_voucher_number", ["voucherNumber"]),
 };
 
 export default defineSchema({

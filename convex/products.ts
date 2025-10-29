@@ -69,6 +69,19 @@ export const getProductsByCodes = query({
     },
 });
 
+export const getProductsByIds = query({
+    args: { ids: v.array(v.id("products")) },
+    handler: async (ctx, args) => {
+        await getCurrentUser(ctx);
+        const results: any[] = [];
+        for (const id of args.ids) {
+            const p = await ctx.db.get(id);
+            if (p) results.push(p);
+        }
+        return results;
+    },
+});
+
 export const createProduct = mutation({
     args: {
         productCode: v.string(),

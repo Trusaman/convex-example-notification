@@ -27,6 +27,9 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
     const requestEdit = useMutation(api.orders.requestEdit);
     const confirmWarehouse = useMutation(api.orders.confirmWarehouse);
     const updateOrderStatus = useMutation(api.orders.updateOrderStatus);
+    const createDeliveryVoucher = useMutation(
+        api.deliveryVouchers.createDeliveryVoucher
+    );
 
     if (!order) {
         return (
@@ -131,6 +134,15 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
         }
     };
 
+    const handleCreateVoucher = async () => {
+        try {
+            await createDeliveryVoucher({ orderId });
+            toast.success("Delivery voucher created");
+        } catch (error) {
+            toast.error("Failed to create delivery voucher");
+        }
+    };
+
     const canApprove =
         (user.role === "accountant" || user.role === "admin") &&
         order.status === "pending";
@@ -140,6 +152,10 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
     const canMarkShipped =
         (user.role === "shipper" || user.role === "admin") &&
         order.status === "warehouse_confirmed";
+
+    const canCreateVoucher =
+        user.role === "admin" &&
+        (order.status === "approved" || order.status === "warehouse_confirmed");
 
     return (
         <div className="p-6">
@@ -200,8 +216,19 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
                         <button
                             onClick={handleMarkShipped}
                             className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+                            type="button"
                         >
                             Mark Shipped
+                        </button>
+                    )}
+
+                    {canCreateVoucher && (
+                        <button
+                            onClick={handleCreateVoucher}
+                            className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700"
+                            type="button"
+                        >
+                            Create Delivery Voucher
                         </button>
                     )}
                 </div>
@@ -327,6 +354,9 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
                                     productCodes={order.items.map(
                                         (i: any) => i.productId
                                     )}
+                                    productIds={order.items.map(
+                                        (i: any) => i.productId
+                                    )}
                                     quantities={Object.fromEntries(
                                         order.items.map((i: any) => [
                                             i.productId,
@@ -355,8 +385,12 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
                     </div>
                 </div>
 
-                {/* Comments Section */}
+                {/* Comments & Vouchers Section */}
                 <div className="space-y-6">
+                    {/* Delivery Vouchers */}
+                    <OrderVouchers orderId={orderId} />
+
+                    {/* Comments */}
                     <div className="bg-white border rounded-lg">
                         <div className="p-4 border-b">
                             <h3 className="text-lg font-medium">Comments</h3>
@@ -426,6 +460,50 @@ export function OrderDetails({ orderId, user, onBack }: OrderDetailsProps) {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function OrderVouchers({ orderId }: { orderId: Id<"orders"> }) {
+    const vouchers = useQuery(api.deliveryVouchers.getVouchersByOrder, {
+        orderId,
+    });
+
+    return (
+        <div className="bg-white border rounded-lg">
+            <div className="p-4 border-b">
+                <h3 className="text-lg font-medium">Delivery Vouchers</h3>
+            </div>
+            <div className="p-4 space-y-3">
+                {!vouchers || vouchers.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No vouchers yet</p>
+                ) : (
+                    vouchers.map((v: any) => (
+                        <div
+                            key={String(v._id)}
+                            className="border rounded-md p-3"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="font-medium">
+                                    {v.voucherNumber}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    {new Date(v.createdAt).toLocaleString()}
+                                </div>
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1">
+                                Items:{" "}
+                                {v.items
+                                    ?.map(
+                                        (i: any) =>
+                                            `${i.productName} x ${i.quantity}`
+                                    )
+                                    .join(", ")}
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );
