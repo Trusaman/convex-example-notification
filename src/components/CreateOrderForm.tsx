@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { ProductDropdown } from "./ProductDropdown";
+import { CustomerDropdown } from "./CustomerDropdown";
 
 interface OrderItem {
     productId: string;
@@ -144,12 +145,16 @@ export function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Customer ID
                             </label>
-                            <input
-                                type="text"
-                                value={customerId}
-                                onChange={(e) => setCustomerId(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                required
+                            <CustomerDropdown
+                                value={
+                                    customerId
+                                        ? { customerId, customerName }
+                                        : null
+                                }
+                                onChange={(v) => {
+                                    setCustomerId(v?.customerId ?? "");
+                                    setCustomerName(v?.customerName ?? "");
+                                }}
                             />
                         </div>
                         <div>
